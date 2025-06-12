@@ -1,0 +1,50 @@
+- hosts: minecraft
+  become: yes
+  tasks:
+    - name: Install Java
+      yum:
+        name: java-1.8.0-openjdk
+        state: present
+
+    - name: Create Minecraft directory
+      file:
+        path: /home/ec2-user/minecraft
+        state: directory
+
+    - name: Download Minecraft server jar
+      get_url:
+        url: https://piston-data.mojang.com/v1/objects/e6ec2f64e6080b9b5d9b471b291c33cc7f509733/server.jar
+        dest: /home/ec2-user/minecraft/server.jar
+
+    - name: Accept EULA
+      copy:
+        dest: /home/ec2-user/minecraft/eula.txt
+        content: "eula=true"
+
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/minecraft.service
+        content: |
+          [Unit]
+          Description=Minecraft Server
+          After=network.target
+
+          [Service]
+          User=ec2-user
+          WorkingDirectory=/home/ec2-user/minecraft
+          ExecStart=/usr/bin/java -Xmx1024M -Xms1024M -jar server.jar nogui
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Minecraft
+      systemd:
+        name: minecraft
+        enabled: yes
+        state: started
+
